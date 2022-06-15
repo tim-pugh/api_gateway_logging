@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-app
+
+  Sample SAM Template for sam-app
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    Tracing: Active
+
+Resources:
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+
+  APIGatewayResource: #This allows us finer control over our API Gateway resource. 
+    Type: AWS::Serverless::Api #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html
+    Properties:
+      OpenApiVersion: '3.0.1' # prevents the default "Stage" name from being deployed. Prevents creating a default stage. More on this issue can be read here: https://github.com/awslabs/serverless-application-model/issues/191 && documentation: #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-openapiversion
+      EndpointConfiguration: EDGE
+      AccessLogSetting: #AccessLogSetting #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-accesslogsetting
+  #      The Amazon Resource Name (ARN) of the CloudWatch Logs log group or Kinesis Data Firehose delivery stream to receive access logs. If you specify a Kinesis Data Firehose delivery stream, the stream name must begin with amazon-apigateway-.
+        DestinationArn: !GetAtt AccessLogGroup.Arn #String #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-stage-accesslogsetting.html#cfn-apigateway-stage-accesslogsetting-destinationarn
+        Format: #>- #String #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-stage-accesslogsetting.html#cfn-apigateway-stage-accesslogsetting-format
+          ' {    "accountId": "$context.accountId",    "apiId": "$context.apiId",    "stage": "$context.stage",    "resourcePath": "$context.resourcePath",    "httpMethod": "$context.httpMethod",    "protocol": "$context.protocol",    "status": "$context.status",    "responseType": "$context.error.responseType",    "error.message": "$context.error.message",    "requestTime": "$context.requestTime",    "requestId": "$context.requestId",    "ip": "$context.identity.sourceIp",    "caller": "$context.identity.caller",    "user": "$context.identity.user",    "responseLength": "$context.responseLength"}'
+      StageName: Prod #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-stagename
+      MethodSettings: #MethodSettings #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-methodsettings      
+        - DataTraceEnabled: true #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-datatraceenabled
+          HttpMethod: '*' #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-httpmethod
+          LoggingLevel: INFO #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-logginglevel
+          MetricsEnabled: true #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-metricsenabled
+          ResourcePath: '/*' #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-resourcepath
+          ThrottlingBurstLimit: 5000 #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-throttlingburstlimit
+          ThrottlingRateLimit: 10000 #https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apitgateway-stage-methodsetting.html#cfn-apigateway-stage-methodsetting-throttlingratelimit
+      TracingEnabled: true #https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-tracingenabled
+
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGatewayResource
+            Path: /
+            Method: get
+      Tracing: Active
